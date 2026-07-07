@@ -1,0 +1,2 @@
+# HarcaMaTh
+Gider hesaplama uygulaması 
