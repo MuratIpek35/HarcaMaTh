@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aylık Harcama ve Kart Takibi</title>
+    <style>
+        :root { --primary: #4a90e2; --bg: #f4f7f6; --text: #333; --border: #ddd; --melis: #e74c3c; --murat: #2ecc71; --yemek: #f39c12; --kart:#9b59b6; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 1300px; margin: auto; display: grid; grid-template-columns: 380px 1fr; gap: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2, h3 { margin-top: 0; color: var(--primary); font-size: 18px; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; color: #555; }
+        input, select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+        .checkbox-group { display: flex; align-items: center; gap: 10px; padding: 10px; background: #f9f9f9; border-radius: 4px; border: 1px solid var(--border); }
+        .hidden { display: none !important; }
+        button { width: 100%; padding: 10px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold; }
+        button:hover { background: #357abd; }
+        .btn-small { padding: 5px 8px; font-size: 12px; width: auto; }
+        .btn-delete { background: #e74c3c; }
+        .btn-save { background: #2ecc71; margin-top: 10px; }
+        .btn-sub { background: #8e44ad; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; }
+        th { background: #f1f1f1; }
+        .badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; color: white; display: inline-block; }
+        .b-murat { background-color: var(--murat); } .b-melis { background-color: var(--melis); } .b-yemek { background-color: var(--yemek); }
+        .b-taksit { background-color: #8e44ad; } .b-abonelik { background-color: #34495e; } .b-nakit { background-color: #7f8c8d; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 15px; }
+        .summary-box { background: #fff; padding: 15px; border-radius: 6px; border: 1px solid var(--border); text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .summary-box span { display: block; font-size: 18px; font-weight: bold; margin-top: 5px; color: var(--primary); }
+        .budget-inputs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        .sub-list-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #f9f9f9; border: 1px solid #eee; margin-bottom: 5px; border-radius: 4px; font-size: 12px; }
+        
+        .filter-panel { display: flex; flex-direction: column; gap: 12px; background: #ebf3fc; padding: 15px; border-radius: 6px; border: 1px solid #bcd5f3; margin-bottom: 15px; }
+        .filter-row { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .filter-title { font-weight: bold; font-size: 13px; color: #2c5282; min-width: 130px; }
+        .filter-label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: normal; color: #333; }
+        .filter-label input[type="checkbox"] { width: auto; cursor: pointer; margin: 0; }
+        .filter-divider { border-top: 1px solid #bcd5f3; width: 100%; margin: 2px 0; }
+    </style>
+</head>
+<body>
+
+<div class="card" style="margin-bottom: 20px; max-width: 1300px; margin-left: auto; margin-right: auto;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+        <div>
+            <label style="font-size: 16px; color: var(--primary);">Gösterilecek Ayı Seçin</label>
+            <input type="month" id="seciliAy" style="width: 250px; font-size: 16px; font-weight: bold;">
+        </div>
+        <div style="flex-grow: 1;">
+            <label style="color: var(--primary);">Seçili Ay İçin Bütçe Tanımlamaları</label>
+            <div class="budget-inputs">
+                <div><label>Murat Maaş (TL)</label><input type="number" id="muratMaas" placeholder="0"></div>
+                <div><label>Melis Maaş (TL)</label><input type="number" id="melisMaas" placeholder="0"></div>
+                <div><label>Melis Yemek Kartı (TL)</label><input type="number" id="melisYemek" placeholder="0"></div>
+            </div>
+            <button class="btn-small btn-save" style="width: 100%;" onclick="butceyiKaydet()">Maaşları Bu Ay İçin Kaydet / Güncelle</button>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div>
+        <div class="card">
+            <h2>Harcama Ekle</h2>
+            <form id="harcamaForm">
+                <div class="form-group"><label>Tarih</label><input type="date" id="tarih" required></div>
+                <div class="form-group"><label>Açıklama</label><input type="text" id="aciklama" required></div>
+                <div class="form-group">
+                    <label>Kategori</label>
+                    <select id="kategori">
+                        <option value="Mutfak Alışverişi">Mutfak Alışverişi</option>
+                        <option value="Kahve">Kahve</option>
+                        <option value="Eğlence">Eğlence / Dışarı Çıkma</option>
+                        <option value="Ev İhtiyacı">Ev İhtiyacı</option>
+                        <option value="Fatura">Faturalar</option>
+                        <option value="Ulaşım">Ulaşım</option>
+                        <option value="Diğer">Diğer (Yeni Kategori Ekle)</option>
+                    </select>
+                </div>
+                <div class="form-group hidden" id="yeniKategoriAlani"><label>Yeni Kategori Adı</label><input type="text" id="yeniKategori"></div>
+                
+                <div class="form-group">
+                    <label>Harcamayı Yapan</label>
+                    <select id="kisi"><option value="Murat">Murat</option><option value="Melis">Melis</option></select>
+                </div>
+                
+                <div class="form-group checkbox-group hidden" id="yemekKartiAlani">
+                    <input type="checkbox" id="yemekKartiIleOde"><label for="yemekKartiIleOde" style="margin: 0;">Melis: Yemek Kartından Öde</label>
+                </div>
+
+                <div class="form-group" id="odemeYontemiDiv">
+                    <label>Ödeme Yöntemi</label>
+                    <select id="odemeYontemi">
+                        <option value="Kredi Kartı">Kredi Kartı</option>
+                        <option value="Nakit">Nakit (Hesaptan/Maaştan)</option>
+                    </select>
+                </div>
+
+                <div class="form-group"><label>Toplam Tutar (TL)</label><input type="number" id="tutar" step="0.01" required></div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="taksitliMi"><label for="taksitliMi" style="margin: 0;">Bu harcama taksitli mi?</label>
+                </div>
+                <div class="form-group hidden" id="taksitSayisiAlani" style="margin-top:10px;">
+                    <label>Taksit Sayısı (Ay)</label><input type="number" id="taksitSayisi" min="2" value="2">
+                </div>
+                <button type="submit" style="margin-top: 15px;">Listeye Ekle</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>Abonelik Yönetimi</h2>
+            <form id="abonelikForm">
+                <div class="form-group"><label>Abonelik Adı</label><input type="text" id="abAciklama" required></div>
+                <div class="form-group">
+                    <label>Kategori</label>
+                    <select id="abKategori">
+                        <option value="Eğlence">Eğlence / Dijital</option>
+                        <option value="Ev İhtiyacı">Ev İhtiyacı</option>
+                        <option value="Mutfak Alışverişi">Mutfak Alışverişi</option>
+                        <option value="Diğer">Diğer</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Ödeyen Kişi</label>
+                    <select id="abKisi"><option value="Murat">Murat</option><option value="Melis">Melis</option></select>
+                </div>
+                <div class="form-group checkbox-group hidden" id="abYemekKartiAlani">
+                    <input type="checkbox" id="abYemekKartiIleOde"><label for="abYemekKartiIleOde" style="margin: 0;">Yemek Kartından Öde</label>
+                </div>
+                <div class="form-group" id="abOdemeYontemiDiv">
+                    <label>Ödeme Yöntemi</label>
+                    <select id="abOdemeYontemi">
+                        <option value="Kredi Kartı">Kredi Kartı</option>
+                        <option value="Nakit">Nakit (Hesaptan/Maaştan)</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Aylık Tutar (TL)</label><input type="number" id="abTutar" step="0.01" required></div>
+                <button type="submit" class="btn-sub">Sabit Abonelik Tanımla</button>
+            </form>
+            <h3 style="margin-top: 20px; font-size: 14px; border-top: 1px solid #eee; padding-top:10px;">Kayıtlı Abonelikler</h3>
+            <div id="aktifAboneliklerListesi"></div>
+        </div>
+    </div>
+
+    <div>
+        <div class="filter-panel">
+            <div class="filter-row">
+                <span class="filter-title">Ödeme Türü Filtresi:</span>
+                <label class="filter-label"><input type="checkbox" id="fKrediKarti" checked> Kredi Kartı</label>
+                <label class="filter-label"><input type="checkbox" id="fNakit" checked> Nakit</label>
+                <label class="filter-label"><input type="checkbox" id="fYemekKarti" checked> Yemek Kartı</label>
+            </div>
+            <div class="filter-divider"></div>
+            <div class="filter-row" style="align-items: flex-start;">
+                <span class="filter-title" style="margin-top: 2px;">Kategori Filtresi:</span>
+                <div id="kategoriFiltreAlani" style="display: flex; gap: 12px; flex-wrap: wrap; flex-grow: 1;">
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2><span id="ozetBaslikAy"></span> Ayı Bütçe ve Kart Özeti</h2>
+            <div class="summary-grid" id="butceOzeti"></div>
+            
+            <h3 style="margin-top: 20px; border-top: 1px solid #ddd; padding-top: 20px;">Kategori Bazlı Toplam Harcamalar <span style="font-size:11px; color:#777; font-weight:normal;">(Büyükten Küçüğe Sıralı)</span></h3>
+            <div class="summary-grid" id="kategoriOzeti"></div>
+        </div>
+        
+        <div class="card">
+            <h3>Harcama Geçmişi (Seçili Ay)</h3>
+            <div style="overflow-x: auto;">
+                <table id="harcamaTablosu">
+                    <thead><tr><th>Tarih</th><th>Açıklama</th><th>Kategori</th><th>Ödeyen</th><th>Tür</th><th>Tutar</th><th>Durum</th><th>İşlem</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let harcamalar = [];
+    let butceler = {};
+    let ozelKategoriler = [];
+    let abonelikler = [];
+    let seciliKategoriler = new Set();
+
+    const seciliAyInput = document.getElementById('seciliAy');
+    const kategoriSelect = document.getElementById('kategori');
+    const yeniKategoriAlani = document.getElementById('yeniKategoriAlani');
+    const kisiSelect = document.getElementById('kisi');
+    const yemekKartiAlani = document.getElementById('yemekKartiAlani');
+    const odemeYontemiDiv = document.getElementById('odemeYontemiDiv');
+    const taksitliMiCheck = document.getElementById('taksitliMi');
+    const taksitSayisiAlani = document.getElementById('taksitSayisiAlani');
+    
+    const abKisiSelect = document.getElementById('abKisi');
+    const abYemekKartiAlani = document.getElementById('abYemekKartiAlani');
+    const abOdemeYontemiDiv = document.getElementById('abOdemeYontemiDiv');
+
+    const fKrediKarti = document.getElementById('fKrediKarti');
+    const fNakit = document.getElementById('fNakit');
+    const fYemekKarti = document.getElementById('fYemekKarti');
+    const kategoriFiltreAlani = document.getElementById('kategoriFiltreAlani');
+
+    function getTumKategoriler() {
+        return ["Mutfak Alışverişi", "Kahve", "Eğlence", "Ev İhtiyacı", "Fatura", "Ulaşım", ...ozelKategoriler];
+    }
+
+    async function verileriYukle() {
+        try {
+            const response = await fetch('/yukle');
+            const data = await response.json();
+            harcamalar = data.harcamalar || [];
+            butceler = data.diger.butceler || {};
+            ozelKategoriler = data.diger.ozelKategoriler || [];
+            abonelikler = data.diger.abonelikler || [];
+            
+            getTumKategoriler().forEach(k => seciliKategoriler.add(k));
+            baslangicAyari();
+        } catch(e) {
+            console.error("Bağlantı hatası.", e);
+        }
+    }
+
+    async function verileriKaydetAPI() {
+        const payload = { harcamalar: harcamalar, diger: { butceler: butceler, ozelKategoriler: ozelKategoriler, abonelikler: abonelikler } };
+        await fetch('/kaydet', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+    }
+
+    function baslangicAyari() {
+        const bugun = new Date();
+        seciliAyInput.value = bugun.toISOString().substring(0, 7); 
+        document.getElementById('tarih').valueAsDate = bugun;
+        kategorileriDoldur();
+        
+        fKrediKarti.addEventListener('change', arayuzuGuncelle);
+        fNakit.addEventListener('change', arayuzuGuncelle);
+        fYemekKarti.addEventListener('change', arayuzuGuncelle);
+
+        abonelikListesiniGoster();
+        kategoriFiltrePaneliniCiz();
+        ayDegisti(); 
+    }
+
+    window.onload = verileriYukle;
+
+    seciliAyInput.addEventListener('change', ayDegisti);
+    
+    function ayDegisti() {
+        const ay = seciliAyInput.value;
+        document.getElementById('ozetBaslikAy').innerText = ay;
+        
+        let butce = butceler[ay];
+        if (!butce) {
+            const oncekiAylar = Object.keys(butceler).filter(k => k < ay).sort().reverse();
+            if (oncekiAylar.length > 0) {
+                butce = { ...butceler[oncekiAylar[0]] }; 
+                butceler[ay] = butce; 
+                verileriKaydetAPI(); 
+            } else {
+                butce = { murat: 0, melis: 0, yemek: 0 };
+            }
+        }
+        
+        document.getElementById('muratMaas').value = butce.murat || '';
+        document.getElementById('melisMaas').value = butce.melis || '';
+        document.getElementById('melisYemek').value = butce.yemek || '';
+
+        abonelikleriAyaEntegreEt(ay);
+        arayuzuGuncelle();
+    }
+
+    function kategoriFiltrePaneliniCiz() {
+        kategoriFiltreAlani.innerHTML = '';
+        const listelenecekKategoriler = getTumKategoriler();
+        
+        listelenecekKategoriler.forEach(kat => {
+            const label = document.createElement('label');
+            label.className = 'filter-label';
+            const isChecked = seciliKategoriler.has(kat) ? 'checked' : '';
+            label.innerHTML = `<input type="checkbox" value="${kat}" ${isChecked}> ${kat}`;
+            
+            label.querySelector('input').addEventListener('change', function() {
+                if (this.checked) seciliKategoriler.add(this.value);
+                else seciliKategoriler.delete(this.value);
+                arayuzuGuncelle();
+            });
+            kategoriFiltreAlani.appendChild(label);
+        });
+    }
+
+    async function abonelikleriAyaEntegreEt(hedefAy) {
+        let guncellendiMi = false;
+        abonelikler.forEach(ab => {
+            const varMi = harcamalar.some(h => h.ay === hedefAy && String(h.abonelikId) === String(ab.id));
+            if (!varMi) {
+                harcamalar.push({
+                    id: Date.now() + Math.random(), 
+                    groupId: null, abonelikId: ab.id,
+                    tarih: `${hedefAy}-01`, ay: hedefAy,
+                    aciklama: ab.aciklama, kategori: ab.kategori, kisi: ab.kisi,
+                    yemekKartiIle: ab.yemekKartiIle, 
+                    odemeYontemi: ab.odemeYontemi || 'Kredi Kartı', 
+                    tutar: ab.tutar, taksitBilgisi: null
+                });
+                guncellendiMi = true;
+            }
+        });
+        if (guncellendiMi) { await verileriKaydetAPI(); arayuzuGuncelle(); }
+    }
+
+    async function butceyiKaydet() {
+        const ay = seciliAyInput.value;
+        butceler[ay] = {
+            murat: parseFloat(document.getElementById('muratMaas').value) || 0,
+            melis: parseFloat(document.getElementById('melisMaas').value) || 0,
+            yemek: parseFloat(document.getElementById('melisYemek').value) || 0
+        };
+        await verileriKaydetAPI();
+        arayuzuGuncelle();
+        alert(`${ay} bütçesi güncellendi!`);
+    }
+
+    function pedigriKategoriEkle(kat, selectEl) {
+        if(![...selectEl.options].some(o => o.value === kat)) {
+            selectEl.insertBefore(new Option(kat, kat), selectEl.lastElementChild);
+        }
+    }
+
+    function kategorileriDoldur() {
+        const abKategoriSelect = document.getElementById('abKategori');
+        ozelKategoriler.forEach(kat => {
+            pedigriKategoriEkle(kat, kategoriSelect);
+            pedigriKategoriEkle(kat, abKategoriSelect);
+        });
+    }
+
+    kategoriSelect.addEventListener('change', (e) => {
+        if (e.target.value === 'Diğer') yeniKategoriAlani.classList.remove('hidden');
+        else yeniKategoriAlani.classList.add('hidden');
+    });
+
+    kisiSelect.addEventListener('change', formKisiKontrol);
+    document.getElementById('yemekKartiIleOde').addEventListener('change', formKisiKontrol);
+
+    function formKisiKontrol() {
+        if (kisiSelect.value === 'Melis') {
+            yemekKartiAlani.classList.remove('hidden');
+            if(document.getElementById('yemekKartiIleOde').checked) odemeYontemiDiv.classList.add('hidden');
+            else odemeYontemiDiv.classList.remove('hidden');
+        } else {
+            yemekKartiAlani.classList.add('hidden');
+            document.getElementById('yemekKartiIleOde').checked = false;
+            odemeYontemiDiv.classList.remove('hidden');
+        }
+    }
+
+    abKisiSelect.addEventListener('change', abKisiKontrol);
+    document.getElementById('abYemekKartiIleOde').addEventListener('change', abKisiKontrol);
+
+    function abKisiKontrol() {
+        if (abKisiSelect.value === 'Melis') {
+            abYemekKartiAlani.classList.remove('hidden');
+            if(document.getElementById('abYemekKartiIleOde').checked) abOdemeYontemiDiv.classList.add('hidden');
+            else abOdemeYontemiDiv.classList.remove('hidden');
+        } else {
+            abYemekKartiAlani.classList.add('hidden');
+            document.getElementById('abYemekKartiIleOde').checked = false;
+            abOdemeYontemiDiv.classList.remove('hidden');
+        }
+    }
+
+    taksitliMiCheck.addEventListener('change', (e) => {
+        if(e.target.checked) taksitSayisiAlani.classList.remove('hidden');
+        else taksitSayisiAlani.classList.add('hidden');
+    });
+
+    document.getElementById('harcamaForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const tarih = document.getElementById('tarih').value;
+        let kategori = kategoriSelect.value;
+        const yeniKategori = document.getElementById('yeniKategori').value.trim();
+        const kisi = kisiSelect.value;
+        const toplamTutar = parseFloat(document.getElementById('tutar').value);
+        const yemekKarti = document.getElementById('yemekKartiIleOde').checked && kisi === 'Melis';
+        const taksitli = taksitliMiCheck.checked;
+        const taksitSayisi = parseInt(document.getElementById('taksitSayisi').value) || 1;
+        const aciklamaGirdi = document.getElementById('aciklama').value;
+        
+        let odemeYnt = document.getElementById('odemeYontemi').value;
+        if(yemekKarti) odemeYnt = "Yemek Kartı";
+
+        if (kategori === 'Diğer' && yeniKategori !== '') {
+            kategori = yeniKategori;
+            if (!ozelKategoriler.includes(kategori)) {
+                ozelKategoriler.push(kategori);
+                kategorileriDoldur();
+                seciliKategoriler.add(kategori); 
+                kategoriFiltrePaneliniCiz();
+            }
+        }
+
+        const groupId = taksitli ? Date.now().toString() : null;
+
+        if (taksitli && taksitSayisi > 1) {
+            const aylikTutar = toplamTutar / taksitSayisi;
+            for (let i = 0; i < taksitSayisi; i++) {
+                let d = new Date(tarih); d.setMonth(d.getMonth() + i);
+                const taksitTarihi = d.toISOString().split('T')[0];
+                harcamalar.push({
+                    id: Date.now() + i, groupId: groupId, abonelikId: null,
+                    tarih: taksitTarihi, ay: taksitTarihi.substring(0, 7),
+                    aciklama: aciklamaGirdi, kategori: kategori, kisi: kisi,
+                    yemekKartiIle: yemekKarti, odemeYontemi: odemeYnt, tutar: aylikTutar, taksitBilgisi: `${i+1}/${taksitSayisi}`
+                });
+            }
+        } else {
+            harcamalar.push({
+                id: Date.now(), groupId: null, abonelikId: null,
+                tarih: tarih, ay: tarih.substring(0, 7),
+                aciklama: aciklamaGirdi, kategori: kategori, kisi: kisi,
+                yemekKartiIle: yemekKarti, odemeYontemi: odemeYnt, tutar: toplamTutar, taksitBilgisi: null
+            });
+        }
+
+        await verileriKaydetAPI();
+        this.reset();
+        document.getElementById('tarih').valueAsDate = new Date();
+        kategoriSelect.value = "Mutfak Alışverişi";
+        yeniKategoriAlani.classList.add('hidden');
+        taksitSayisiAlani.classList.add('hidden');
+        formKisiKontrol(); 
+        arayuzuGuncelle();
+    });
+
+    document.getElementById('abonelikForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const yemekKartiMi = document.getElementById('abYemekKartiIleOde').checked && document.getElementById('abKisi').value === 'Melis';
+        
+        const yeniAb = {
+            id: Date.now(),
+            aciklama: document.getElementById('abAciklama').value,
+            kategori: document.getElementById('abKategori').value,
+            kisi: document.getElementById('abKisi').value,
+            yemekKartiIle: yemekKartiMi,
+            odemeYontemi: yemekKartiMi ? 'Yemek Kartı' : document.getElementById('abOdemeYontemi').value,
+            tutar: parseFloat(document.getElementById('abTutar').value)
+        };
+        abonelikler.push(yeniAb);
+        await verileriKaydetAPI();
+        this.reset();
+        abKisiKontrol();
+        abonelikListesiniGoster();
+        abonelikleriAyaEntegreEt(seciliAyInput.value);
+    });
+
+    function abonelikListesiniGoster() {
+        const listeDiv = document.getElementById('aktifAboneliklerListesi');
+        listeDiv.innerHTML = '';
+        if(abonelikler.length === 0) {
+            listeDiv.innerHTML = '<div style="font-size:12px; color:#999;">Kayıt yok.</div>'; return;
+        }
+        abonelikler.forEach(ab => {
+            listeDiv.innerHTML += `
+                <div class="sub-list-item">
+                    <div>
+                        <strong>${ab.aciklama}</strong> (${ab.tutar.toFixed(2)} ₺)<br>
+                        <small style="color:#666">${ab.kisi} - ${ab.kategori} [${ab.odemeYontemi}]</small>
+                    </div>
+                    <button class="btn-small btn-delete" onclick="abonelikSil(${ab.id})">Kaldır</button>
+                </div>`;
+        });
+    }
+
+    async function abonelikSil(id) {
+        abonelikler = abonelikler.filter(a => a.id !== id);
+        await verileriKaydetAPI();
+        abonelikListesiniGoster();
+    }
+
+    async function harcamaSil(id, groupId) {
+        if (groupId && groupId !== 'null') {
+            if(confirm("Bu bir taksitli işlem. Sildiğinizde tüm taksitler silinecektir. Onaylıyor musunuz?")) 
+                harcamalar = harcamalar.filter(h => String(h.groupId) !== String(groupId));
+            else return;
+        } else {
+            harcamalar = harcamalar.filter(h => String(h.id) !== String(id));
+        }
+        await verileriKaydetAPI();
+        arayuzuGuncelle();
+    }
+
+    function arayuzuGuncelle() {
+        const seciliAy = seciliAyInput.value;
+        const tbody = document.querySelector('#harcamaTablosu tbody');
+        tbody.innerHTML = '';
+
+        let katToplami = {};
+        let muratNakitT = 0, muratKrediT = 0;
+        let melisNakitT = 0, melisKrediT = 0, melisYemekT = 0;
+
+        const buAyHarcamalar = harcamalar.filter(h => h.ay === seciliAy);
+
+        const gosterKredi = fKrediKarti.checked;
+        const gosterNakit = fNakit.checked;
+        const gosterYemek = fYemekKarti.checked;
+
+        const filtrelenmisHarcamalar = buAyHarcamalar.filter(h => {
+            const yk = h.yemekKartiIle || h.odemeYontemi === 'Yemek Kartı';
+            if (yk && !gosterYemek) return false;
+            if (!yk && h.odemeYontemi === 'Kredi Kartı' && !gosterKredi) return false;
+            if (!yk && h.odemeYontemi === 'Nakit' && !gosterNakit) return false;
+            if (!seciliKategoriler.has(h.kategori)) return false;
+            return true;
+        }).sort((a, b) => new Date(b.tarih) - new Date(a.tarih));
+
+        filtrelenmisHarcamalar.forEach(h => {
+            katToplami[h.kategori] = (katToplami[h.kategori] || 0) + h.tutar;
+            
+            const yk = h.yemekKartiIle || h.odemeYontemi === 'Yemek Kartı';
+
+            if(h.kisi === 'Murat') {
+                if(h.odemeYontemi === 'Kredi Kartı') muratKrediT += h.tutar;
+                else muratNakitT += h.tutar;
+            } else if (h.kisi === 'Melis') {
+                if(yk) melisYemekT += h.tutar;
+                else if (h.odemeYontemi === 'Kredi Kartı') melisKrediT += h.tutar;
+                else melisNakitT += h.tutar;
+            }
+
+            const tr = document.createElement('tr');
+            let kisiRozet = h.kisi === 'Murat' ? '<span class="badge b-murat">Murat</span>' : '<span class="badge b-melis">Melis</span>';
+            
+            let turRozet = '';
+            if (yk) turRozet = '<span class="badge b-yemek">Yemek Kartı</span>';
+            else if (h.odemeYontemi === 'Kredi Kartı') turRozet = '<span class="badge" style="background:var(--kart)">Kredi Kartı</span>';
+            else turRozet = '<span class="badge b-nakit">Nakit</span>';
+
+            let durumMetni = '-';
+            if (h.taksitBilgisi && h.taksitBilgisi !== 'null') durumMetni = `<span class="badge b-taksit">${h.taksitBilgisi} Taksit</span>`;
+            else if (h.abonelikId && h.abonelikId !== 'null') durumMetni = `<span class="badge b-abonelik">Abonelik</span>`;
+            
+            let grp = h.groupId ? `'${h.groupId}'` : `null`;
+
+            tr.innerHTML = `
+                <td>${new Date(h.tarih).toLocaleDateString('tr-TR')}</td>
+                <td>${h.aciklama}</td><td>${h.kategori}</td><td>${kisiRozet}</td>
+                <td>${turRozet}</td>
+                <td><strong>${h.tutar.toFixed(2)} ₺</strong></td><td>${durumMetni}</td>
+                <td><button class="btn-small btn-delete" onclick="harcamaSil('${h.id}', ${grp})">Sil</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        if(filtrelenmisHarcamalar.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#888;">Seçili kriterlere uygun harcama kaydı bulunmuyor.</td></tr>';
+        }
+
+        const mevcutButce = butceler[seciliAy] || { murat: 0, melis: 0, yemek: 0 };
+        
+        const kalanMurat = mevcutButce.murat - muratNakitT;
+        const kalanMelis = mevcutButce.melis - melisNakitT;
+        const kalanYemek = mevcutButce.yemek - melisYemekT;
+
+        document.getElementById('butceOzeti').innerHTML = `
+            <div class="summary-box" style="border-top: 4px solid var(--murat); opacity: ${gosterNakit ? 1 : 0.5};">Murat Kalan Maaş 
+                <span style="color:${kalanMurat < 0 ? 'red' : 'var(--primary)'}">${kalanMurat.toFixed(2)} ₺</span>
+                <small style="color:#777">Nakit Çıkan: ${muratNakitT.toFixed(2)} ₺</small>
+            </div>
+            <div class="summary-box" style="border-top: 4px solid var(--kart); background: #fdf5ff; opacity: ${gosterKredi ? 1 : 0.5};">Murat Kart Borcu
+                <span style="color:var(--kart)">${muratKrediT.toFixed(2)} ₺</span>
+                <small style="color:#777">Ay sonu ödenecek</small>
+            </div>
+            
+            <div class="summary-box" style="border-top: 4px solid var(--melis); opacity: ${gosterNakit ? 1 : 0.5};">Melis Kalan Maaş 
+                <span style="color:${kalanMelis < 0 ? 'red' : 'var(--primary)'}">${kalanMelis.toFixed(2)} ₺</span>
+                <small style="color:#777">Nakit Çıkan: ${melisNakitT.toFixed(2)} ₺</small>
+            </div>
+            <div class="summary-box" style="border-top: 4px solid var(--kart); background: #fdf5ff; opacity: ${gosterKredi ? 1 : 0.5};">Melis Kart Borcu
+                <span style="color:var(--kart)">${melisKrediT.toFixed(2)} ₺</span>
+                <small style="color:#777">Ay sonu ödenecek</small>
+            </div>
+
+            <div class="summary-box" style="border-top: 4px solid var(--yemek); opacity: ${gosterYemek ? 1 : 0.5};">Kalan Yemek Kartı 
+                <span style="color:${kalanYemek < 0 ? 'red' : 'var(--primary)'}">${kalanYemek.toFixed(2)} ₺</span>
+                <small style="color:#777">Harcanan: ${melisYemekT.toFixed(2)} ₺</small>
+            </div>
+        `;
+
+        // --- YENİ MANTIKSAL DÜZENLEME: KATEGORİLERİ BÜYÜKTEN KÜÇÜĞE SIRALAMA ---
+        const kOzeti = document.getElementById('kategoriOzeti');
+        kOzeti.innerHTML = '';
+        
+        // KatToplami nesnesini diziye çevirip tutarlarına göre (b[1] - a[1]) azalan sıralıyoruz
+        const siraliKategoriler = Object.entries(katToplami).sort((a, b) => b[1] - a[1]);
+        
+        for (const [kategori, tutar] of siraliKategoriler) {
+            kOzeti.innerHTML += `<div class="summary-box" style="padding:10px;">${kategori} <span style="font-size:16px;">${tutar.toFixed(2)} ₺</span></div>`;
+        }
+    }
+</script>
+</body>
+</html>
